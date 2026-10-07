@@ -74,7 +74,7 @@
 }
 
 .ux-app-layout[data-state="collapsed"] .ux-sidebar__title {
-  opacity: 0;
+  display: none;
 }
 
 .ux-sidebar__nav {
