@@ -14,6 +14,10 @@ const contracts = [
     stylesheet.includes("width: 1.75rem") && stylesheet.includes("height: 1.75rem"),
   ],
   [
+    "the collapsed sidebar drops the title from layout",
+    stylesheet.includes('.ux-app-layout[data-state="collapsed"] .ux-sidebar__title {\n  display: none;\n}'),
+  ],
+  [
     "the collapsed tooltip stays hidden while the sidebar is expanded",
     stylesheet.includes(".ux-tooltip[hidden] {\n  display: none;\n}"),
   ],
