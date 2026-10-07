@@ -18,6 +18,10 @@ const contracts = [
     stylesheet.includes('.ux-app-layout[data-state="collapsed"] .ux-sidebar__title {\n  display: none;\n}'),
   ],
   [
+    "the collapsed sidebar pulls nav labels out of the row",
+    stylesheet.includes('.ux-app-layout[data-state="collapsed"] .ux-nav-item__text {\n  width: 0;\n  opacity: 0;\n}'),
+  ],
+  [
     "the collapsed tooltip stays hidden while the sidebar is expanded",
     stylesheet.includes(".ux-tooltip[hidden] {\n  display: none;\n}"),
   ],
