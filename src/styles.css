@@ -178,6 +178,7 @@
 }
 
 .ux-app-layout[data-state="collapsed"] .ux-nav-item__text {
+  width: 0;
   opacity: 0;
 }
 
