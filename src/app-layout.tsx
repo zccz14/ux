@@ -95,10 +95,12 @@ function matchActiveItem(nav: AppNavGroup[], pathname: string): AppNavItem | und
 
 function SidebarNavItem({
   collapsed,
+  end,
   item,
   onNavigate,
 }: {
   collapsed: boolean;
+  end: boolean;
   item: AppNavItem;
   onNavigate?: (() => void) | undefined;
 }) {
@@ -108,7 +110,7 @@ function SidebarNavItem({
         render={
           <NavLink
             className="ux-nav-item"
-            end={item.to === "/"}
+            end={end}
             onClick={onNavigate}
             to={item.to}
           />
@@ -148,6 +150,8 @@ function SidebarBody({
   title: string;
 }) {
   const { resolvedTheme } = useLinkit();
+  const { pathname } = useLocation();
+  const activeItem = matchActiveItem(nav, pathname);
   return (
     <>
       <div className="ux-sidebar__header">
@@ -161,8 +165,12 @@ function SidebarBody({
           <div className="ux-nav-group" key={group.label}>
             <div className="ux-nav-group__label">{group.label}</div>
             {group.items.map((item) => (
+              // NavLink would mark a parent section current on its children's
+              // routes; follow matchActiveItem instead so only the deepest
+              // match (or the exact path) stays marked.
               <SidebarNavItem
                 collapsed={state === "collapsed"}
+                end={item !== activeItem || item.to === pathname}
                 item={item}
                 key={item.to}
                 onNavigate={onNavigate}

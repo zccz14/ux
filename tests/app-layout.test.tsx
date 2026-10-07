@@ -124,6 +124,58 @@ describe("AppLayout", () => {
     );
   });
 
+  it("marks only the deepest item current when a parent lists child entries", () => {
+    const sectionNav: AppNavGroup[] = [
+      {
+        label: "系统",
+        items: [
+          { to: "/admin", label: "控制台", icon: <span data-testid="icon-console" /> },
+          { to: "/admin/audit", label: "审计", icon: <span data-testid="icon-audit" /> },
+          { to: "/admin/resources", label: "资源", icon: <span data-testid="icon-resources" /> },
+        ],
+      },
+    ];
+
+    renderLayout({ nav: sectionNav }, ["/admin/audit"]);
+    expect(screen.getByRole("link", { name: "审计" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "控制台" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(screen.getByRole("link", { name: "资源" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(headerTitle()).toHaveTextContent("审计");
+
+    cleanup();
+    renderLayout({ nav: sectionNav }, ["/admin/audit/2026"]);
+    expect(screen.getByRole("link", { name: "审计" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "控制台" })).not.toHaveAttribute(
+      "aria-current",
+    );
+
+    cleanup();
+    renderLayout({ nav: sectionNav }, ["/admin"]);
+    expect(screen.getByRole("link", { name: "控制台" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    // A path under the parent but outside every listed child belongs to the
+    // parent section: longest-prefix wins.
+    cleanup();
+    renderLayout({ nav: sectionNav }, ["/admin/unlisted"]);
+    expect(screen.getByRole("link", { name: "控制台" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
   it("derives the header title from the active navigation item and accepts an override", () => {
     renderLayout({}, ["/threads/42"]);
     expect(headerTitle()).toHaveTextContent("对话");
