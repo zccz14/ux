@@ -105,12 +105,11 @@
   font-weight: 500;
   white-space: nowrap;
   opacity: 0.7;
-  transition: margin-top 200ms linear, opacity 200ms linear;
+  transition: opacity 200ms linear;
 }
 
 .ux-app-layout[data-state="collapsed"] .ux-nav-group__label {
-  margin-top: -2rem;
-  opacity: 0;
+  display: none;
 }
 
 .ux-nav-item {
