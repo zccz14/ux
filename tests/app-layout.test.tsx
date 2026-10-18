@@ -5,14 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppLayout } from "../src/app-layout.js";
 import type { AppLayoutProps, AppNavGroup } from "../src/types.js";
 
-const linkitState = vi.hoisted(() => ({ lang: "zh-CN", resolvedTheme: "light" }));
+const linkitState = vi.hoisted(() => ({ lang: "zh-CN" }));
 
 vi.mock("linkit-react-components", () => ({
   LinkitMyInfo: () => <div data-testid="linkit-my-info" />,
-  useLinkit: () => ({
-    lang: linkitState.lang,
-    resolvedTheme: linkitState.resolvedTheme,
-  }),
+  useLinkit: () => ({ lang: linkitState.lang }),
 }));
 
 const nav: AppNavGroup[] = [
@@ -38,10 +35,7 @@ function renderLayout(
   return render(
     <MemoryRouter initialEntries={initialEntries}>
       <AppLayout
-        logo={{
-          light: <span data-testid="logo-light" />,
-          dark: <span data-testid="logo-dark" />,
-        }}
+        logo={<span data-testid="logo-mark" />}
         nav={nav}
         title="Cybion"
         {...overrides}
@@ -70,7 +64,6 @@ function headerTitle(): HTMLElement {
 
 beforeEach(() => {
   linkitState.lang = "zh-CN";
-  linkitState.resolvedTheme = "light";
   globalThis.__uxMobileViewport = false;
   document.cookie = "sidebar_state=; path=/; max-age=0";
 });
@@ -78,20 +71,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("AppLayout", () => {
-  it("renders the fixed-size logo pair and picks the variant from the resolved theme", () => {
-    const light = renderLayout();
-    expect(light.container.querySelector(".ux-sidebar__logo")).toContainElement(
-      screen.getByTestId("logo-light"),
+  it("renders the logo mark inside the fixed-size box on the sidebar and in the drawer", () => {
+    const { container } = renderLayout();
+    expect(container.querySelector(".ux-sidebar__logo")).toContainElement(
+      screen.getByTestId("logo-mark"),
     );
-    expect(screen.queryByTestId("logo-dark")).toBeNull();
 
     cleanup();
-    linkitState.resolvedTheme = "dark";
-    const dark = renderLayout();
-    expect(dark.container.querySelector(".ux-sidebar__logo")).toContainElement(
-      screen.getByTestId("logo-dark"),
+    globalThis.__uxMobileViewport = true;
+    renderLayout();
+    fireEvent.click(screen.getByRole("button", { name: "切换侧边栏" }));
+    const drawer = screen.getByRole("dialog");
+    expect(drawer.querySelector(".ux-sidebar__logo")).toContainElement(
+      within(drawer).getByTestId("logo-mark"),
     );
-    expect(screen.queryByTestId("logo-light")).toBeNull();
   });
 
   it("renders grouped navigation and marks the active item", () => {

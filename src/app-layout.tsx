@@ -3,6 +3,7 @@ import {
   useEffect,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
@@ -11,7 +12,7 @@ import { NavLink, useLocation } from "react-router-dom";
 
 import { copyForLang, type AppLayoutCopy } from "./copy.js";
 import { CloseIcon, PanelLeftIcon } from "./icons.js";
-import type { AppLayoutProps, AppLogo, AppNavGroup, AppNavItem } from "./types.js";
+import type { AppLayoutProps, AppNavGroup, AppNavItem } from "./types.js";
 
 const sidebarCookieName = "sidebar_state";
 const sidebarCookieMaxAge = 60 * 60 * 24 * 7;
@@ -143,21 +144,18 @@ function SidebarBody({
   title,
 }: {
   copy: AppLayoutCopy;
-  logo: AppLogo;
+  logo: ReactNode;
   nav: AppNavGroup[];
   onNavigate?: (() => void) | undefined;
   state: "expanded" | "collapsed";
   title: string;
 }) {
-  const { resolvedTheme } = useLinkit();
   const { pathname } = useLocation();
   const activeItem = matchActiveItem(nav, pathname);
   return (
     <>
       <div className="ux-sidebar__header">
-        <span className="ux-sidebar__logo">
-          {resolvedTheme === "dark" ? logo.dark : logo.light}
-        </span>
+        <span className="ux-sidebar__logo">{logo}</span>
         <span className="ux-sidebar__title">{title}</span>
       </div>
       <nav aria-label={copy.navigation} className="ux-sidebar__nav">

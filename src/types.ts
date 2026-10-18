@@ -1,10 +1,5 @@
 import type { ReactNode } from "react";
 
-export type AppLogo = {
-  light: ReactNode;
-  dark: ReactNode;
-};
-
 export type AppNavItem = {
   to: string;
   label: string;
@@ -17,7 +12,7 @@ export type AppNavGroup = {
 };
 
 export type AppLayoutProps = {
-  logo: AppLogo;
+  logo: ReactNode;
   title: string;
   nav: AppNavGroup[];
   headerSlot?: ReactNode;
