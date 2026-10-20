@@ -35,6 +35,10 @@ const contracts = [
     stylesheet.includes('.ux-app-layout[data-state="collapsed"] .ux-sidebar__title {\n  display: none;\n}'),
   ],
   [
+    "the collapsed sidebar drops nav group labels from layout",
+    stylesheet.includes('.ux-app-layout[data-state="collapsed"] .ux-nav-group__label {\n  display: none;\n}'),
+  ],
+  [
     "the collapsed sidebar pulls nav labels out of the row",
     stylesheet.includes('.ux-app-layout[data-state="collapsed"] .ux-nav-item__text {\n  width: 0;\n  opacity: 0;\n}'),
   ],
