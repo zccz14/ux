@@ -12,6 +12,7 @@ export type AppNavGroup = {
 };
 
 export type AppLayoutProps = {
+  favicon?: boolean;
   logo: ReactNode;
   title: string;
   nav: AppNavGroup[];

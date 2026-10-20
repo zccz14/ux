@@ -7,6 +7,7 @@
 - **Sidebar** — one animated icon-collapse sidebar: 16rem expanded, 3rem collapsed, 200 ms width transition. Midas, 1Exchange and 1earn-style shells without animation are replaced by this behavior.
 - **Navigation groups only** — the sidebar has no separate bottom section. Settings and status destinations live in the navigation groups like every other destination, so the bottom edge of every app's sidebar looks the same.
 - **AppHeader** — sidebar trigger, current page title, your `headerSlot`, and the Linkit account control (`LinkitMyInfo`), in that order. Role badges such as 超级管理员 stay out of the shell: administrator affordances live in the administrator navigation group and pages.
+- **Favicon** — the same mark becomes the page favicon: the shell serialises the rendered logo into `link[rel="icon"]`, pins the colour the mark currently shows (a favicon has no app stylesheet, so `currentColor` would otherwise fall back to black), and re-renders it whenever the theme changes. Pass `favicon={false}` to keep an app-owned icon.
 - **Logo** — you pass one mark; the shell renders it inside a fixed 1.75rem box and controls the display size itself, so the logo size is identical everywhere. Pass a mark that follows the current colour (an icon using `currentColor`, or an SVG with mode-aware fills) so it keeps working in both themes. The title beside the logo disappears while collapsed.
 - **Linkit integration** — the viewer's language selects the shell copy (中文/English), and theme, language and account controls all live in the `LinkitMyInfo` dialog. The shell never reads the theme itself: it renders whatever colour scheme its own CSS resolves (see [Styling](#styling)).
 
@@ -74,7 +75,8 @@ export function App() {
 
 | Prop | Type | Required | Description |
 | --- | --- | --- | --- |
-| `logo` | `ReactNode` | yes | The logo mark. The shell renders it at its own fixed 1.75rem size; pass a mark that follows the current colour. |
+| `logo` | `ReactNode` | yes | The logo mark. The shell renders it at its own fixed 1.75rem size and mirrors it into the page favicon; pass a mark that follows the current colour. |
+| `favicon` | `boolean` | no | Defaults to `true`: the logo mark is written to `link[rel="icon"]` and re-rendered on theme changes. Set `false` to leave the app's own icon alone. |
 | `title` | `string` | yes | App name beside the logo. Hidden while the sidebar is collapsed. |
 | `nav` | `AppNavGroup[]` | yes | Navigation groups rendered in the sidebar. |
 | `headerSlot` | `ReactNode` | no | Rendered immediately left of `LinkitMyInfo` in the AppHeader. Use it for page-level actions such as refresh. |
@@ -97,6 +99,7 @@ type AppNavGroup = { label: string; items: AppNavItem[] };
 - **Mobile** — below 768px the sidebar becomes a modal navigation drawer: the trigger opens it, tapping a link or the backdrop closes it.
 - **Collapsed tooltips** — icon-only items reveal their label in a tooltip on hover and focus.
 - **Reduced motion** — `prefers-reduced-motion: reduce` disables the animations.
+- **Favicon** — an `<svg>` logo is serialised to a `data:image/svg+xml` icon with its rendered colour pinned; an `<img>` logo reuses the image URL. The icon is rewritten when `.dark` flips, when `prefers-color-scheme` changes, and when the mark itself is swapped.
 - **Layout contract** — the shell is viewport-locked (`100svh`); the main region is the page's only scroll container and applies the standard `1rem` / `1.5rem` padding. Pages own their inner layout.
 
 ## Styling
@@ -113,6 +116,7 @@ Theme state itself is not the shell's business: whatever toggles `.dark` on `<ht
 2. Move legacy header buttons (refresh, settings, language, theme) into `headerSlot`. Role badges are dropped: administrator affordances belong to the administrator navigation group and pages, and theme/language preferences live in the `LinkitMyInfo` profile dialog (`linkit-react-components` 0.6+).
 3. Move any sidebar footer item (settings, environment status) into the last navigation group.
 4. Pass the single logo mark and delete per-call sizes; the shell normalizes every mark to its 1.75rem box.
+5. Delete the app's own `applyFavicon` / favicon effect: the shell now owns `link[rel="icon"]`. Keep a hand-written favicon only by passing `favicon={false}`.
 
 ## Development
 

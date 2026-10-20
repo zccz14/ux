@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,6 +66,8 @@ beforeEach(() => {
   linkitState.lang = "zh-CN";
   globalThis.__uxMobileViewport = false;
   document.cookie = "sidebar_state=; path=/; max-age=0";
+  document.head.innerHTML = "";
+  document.documentElement.classList.remove("dark");
 });
 
 afterEach(cleanup);
@@ -85,6 +87,51 @@ describe("AppLayout", () => {
     expect(drawer.querySelector(".ux-sidebar__logo")).toContainElement(
       within(drawer).getByTestId("logo-mark"),
     );
+  });
+
+  it("adopts the sidebar mark as the page favicon and re-renders it on theme changes", async () => {
+    document.head.innerHTML = "<style>html { color: #101010 } html.dark { color: #f0f0f0 }</style>";
+    renderLayout({
+      logo: (
+        <svg viewBox="0 0 64 64">
+          <path d="M0 0 L64 64" stroke="currentColor" />
+        </svg>
+      ),
+    });
+
+    const link = document.head.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+    expect(link).not.toBeNull();
+    expect(link!.type).toBe("image/svg+xml");
+
+    const light = decodeURIComponent(link!.getAttribute("href") ?? "");
+    expect(light.startsWith("data:image/svg+xml,")).toBe(true);
+    expect(light).toContain('viewBox="0 0 64 64"');
+    expect(light).toContain("rgb(16, 16, 16)");
+
+    document.documentElement.classList.add("dark");
+    await waitFor(() =>
+      expect(decodeURIComponent(link!.getAttribute("href") ?? "")).toContain("rgb(240, 240, 240)"),
+    );
+  });
+
+  it("uses an image logo URL as the favicon", () => {
+    renderLayout({ logo: <img alt="" src="/mark.svg" /> });
+    const link = document.head.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+    expect(link!.getAttribute("href")).toMatch(/\/mark\.svg$/);
+    expect(link!.type).toBe("image/svg+xml");
+  });
+
+  it("leaves the declared favicon alone when the shell is told to stay out of it", () => {
+    document.head.innerHTML = '<link rel="icon" href="/brand.svg" type="image/svg+xml" />';
+    renderLayout({
+      favicon: false,
+      logo: (
+        <svg viewBox="0 0 64 64">
+          <path d="M0 0 L64 64" />
+        </svg>
+      ),
+    });
+    expect(document.head.querySelector('link[rel~="icon"]')!.getAttribute("href")).toBe("/brand.svg");
   });
 
   it("renders grouped navigation and marks the active item", () => {
