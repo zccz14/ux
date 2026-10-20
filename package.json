@@ -1,7 +1,7 @@
 {
   "name": "@zccz14/ux",
-  "version": "0.2.1",
-  "description": "Unified AppLayout shell for the NTNL app family: one animated icon sidebar, a fixed-size logo box, and the Linkit-integrated AppHeader.",
+  "version": "0.3.0",
+  "description": "Unified AppLayout shell for the NTNL app family: one animated icon sidebar, a fixed-size logo that doubles as the page favicon, and the Linkit-integrated AppHeader.",
   "license": "MIT",
   "repository": {
     "type": "git",

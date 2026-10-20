@@ -1,9 +1,11 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
@@ -11,6 +13,7 @@ import { LinkitMyInfo, useLinkit } from "linkit-react-components";
 import { NavLink, useLocation } from "react-router-dom";
 
 import { copyForLang, type AppLayoutCopy } from "./copy.js";
+import { useLogoFavicon } from "./favicon.js";
 import { CloseIcon, PanelLeftIcon } from "./icons.js";
 import type { AppLayoutProps, AppNavGroup, AppNavItem } from "./types.js";
 
@@ -138,6 +141,7 @@ function SidebarNavItem({
 function SidebarBody({
   copy,
   logo,
+  logoRef,
   nav,
   onNavigate,
   state,
@@ -145,6 +149,7 @@ function SidebarBody({
 }: {
   copy: AppLayoutCopy;
   logo: ReactNode;
+  logoRef?: RefObject<HTMLSpanElement | null>;
   nav: AppNavGroup[];
   onNavigate?: (() => void) | undefined;
   state: "expanded" | "collapsed";
@@ -155,7 +160,9 @@ function SidebarBody({
   return (
     <>
       <div className="ux-sidebar__header">
-        <span className="ux-sidebar__logo">{logo}</span>
+        <span className="ux-sidebar__logo" ref={logoRef}>
+          {logo}
+        </span>
         <span className="ux-sidebar__title">{title}</span>
       </div>
       <nav aria-label={copy.navigation} className="ux-sidebar__nav">
@@ -183,6 +190,7 @@ function SidebarBody({
 
 export function AppLayout({
   children,
+  favicon = true,
   headerSlot,
   logo,
   nav,
@@ -193,7 +201,9 @@ export function AppLayout({
   const { lang } = useLinkit();
   const copy = copyForLang(lang);
   const sidebar = useSidebarState();
+  const logoRef = useRef<HTMLSpanElement>(null);
   const resolvedTitle = pageTitle ?? matchActiveItem(nav, pathname)?.label;
+  useLogoFavicon(logoRef, favicon);
 
   return (
     <TooltipPrimitive.Provider delay={0}>
@@ -205,6 +215,7 @@ export function AppLayout({
           <SidebarBody
             copy={copy}
             logo={logo}
+            logoRef={logoRef}
             nav={nav}
             state={sidebar.open ? "expanded" : "collapsed"}
             title={title}
