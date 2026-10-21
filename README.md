@@ -121,9 +121,9 @@ Theme state itself is not the shell's business: whatever toggles `.dark` on `<ht
 ## Development
 
 ```sh
-npm install
-npm run typecheck
-npm test
-npm run build
-npm run pack:check
+pnpm install
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run pack:check
 ```
