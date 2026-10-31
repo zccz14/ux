@@ -1,6 +1,6 @@
 # @zccz14/ux
 
-`@zccz14/ux` provides the shared `AppLayout` shell for the NTNL app family (Cybion, NormAI, CTX, Linkit, Midas, HIT, 1Exchange, DeepSeek-LB, OpenAI-LB). One implementation of the sidebar, the AppHeader, and the Linkit account control keeps the interaction identical across apps and replaces the per-app copies of that chrome.
+`@zccz14/ux` provides the shared app shell and the shared Markdown renderer for the NTNL app family (Cybion, NormAI, CTX, Linkit, Midas, HIT, 1Exchange, DeepSeek-LB, OpenAI-LB). One implementation of the sidebar, the AppHeader and the Linkit account control keeps the interaction identical across apps; one implementation of `<Markdown>` keeps rendered content — replies, checkpoints, manuals, documents, articles — identical too. Both replace the per-app copies they supersede.
 
 ## What the shell owns
 
@@ -102,9 +102,45 @@ type AppNavGroup = { label: string; items: AppNavItem[] };
 - **Favicon** — an `<svg>` logo is serialised to a `data:image/svg+xml` icon with its rendered colour pinned; an `<img>` logo reuses the image URL. The icon is rewritten when `.dark` flips, when `prefers-color-scheme` changes, and when the mark itself is swapped.
 - **Layout contract** — the shell is viewport-locked (`100svh`); the main region is the page's only scroll container and applies the standard `1rem` / `1.5rem` padding. Pages own their inner layout.
 
+## Markdown
+
+`<Markdown content={...} />` is the single renderer for every piece of Markdown in the family.
+
+```tsx
+import { Markdown } from "@zccz14/ux";
+
+<Markdown content={reply} />;
+```
+
+One prop, on purpose. There is no `math`, `mermaid`, `components`, `remarkPlugins` or `urlTransform` switch: a surface either renders Markdown the family way, or it renders through something else. Every capability below is always on, because the point of the component is that a reply in Cybion, a checkpoint, a manual preview and a CTX article look the same.
+
+### What it renders
+
+- **GitHub Flavored Markdown** — tables, task lists, strikethrough, autolinks.
+- **Math through KaTeX** — `$E=mc^2$`, `$$…$$`, `\(…\)`, `\[…\]` and `math`-tagged code fences, because models emit all of them. KaTeX's stylesheet and fonts are imported by the component itself, so a formula is never unstyled. Broken math degrades to one `.katex-error` span carrying the parser message; math that is still streaming — no closing delimiter yet — stays source instead of flickering.
+- **Mermaid diagrams** — a `mermaid`-tagged fence becomes an SVG, loaded on demand: a surface without a diagram never downloads mermaid. The chart follows the current theme and the surrounding text size, and re-renders when `.dark` flips. An unparseable diagram falls back to its own source block.
+- **Links** — absolute URLs open in a new tab with `rel="noopener noreferrer"` and an external marker; in-page anchors and relative paths stay in the app. Only `http(s)` and `mailto` survive: `javascript:`, `data:` and friends degrade to plain text.
+- **Tables and code** — a wide table or a long code block scrolls inside its own box, so the transcript or article around it never grows a horizontal scrollbar.
+- **Raw HTML** — never rendered. The pipeline has no `rehype-raw`, so HTML in the source is shown as text.
+
+### Typography is owned here
+
+The component wraps its content in `.ux-markdown`, and that block is the family's typographic contract: every size is expressed in `em` off the inherited font size, and no measure is imposed. The same content therefore keeps identical proportions in a 14px chat bubble and a 16px article page. The host decides two things and only two — the font size of the container the content is dropped into, and the width of that container. Do not wrap the component in `prose` classes: the stylesheet is the single source of the look, and `scripts/check-styles.mjs` enforces it.
+
+### Why the pipeline is a runtime dependency
+
+`react-markdown`, `remark-gfm`, `remark-math-extended`, `rehype-katex`, `katex` and `mermaid` are `dependencies`, not peers, so an app wires nothing. An app that never renders Markdown tree-shakes the whole pipeline away, with one deliberate exception: `katex/dist/katex.min.css` is a module-level side effect of the renderer (about 3.6 KB gzipped, plus fonts the browser fetches only when a formula appears). `scripts/check-package.mjs` fails the build if the manifest ever claims `sideEffects: false`, which would let a bundler drop that stylesheet and render every formula as bare LaTeX with no error to notice.
+
+## Migrating an app from its local Markdown renderer
+
+1. Delete the app's own renderer — the `react-markdown` wrapper, its plugin wiring, its `components` map, its `Mermaid`/`MarkdownPre` pair, and any `mermaid`/`rehype-katex`/`remark-*`/`katex` dependency entries that only served it.
+2. Replace each call site with `<Markdown content={markdown} />` and drop the surrounding `prose …` classes: the typography lives in `.ux-markdown`, and the container only owes the content a font size and a width.
+3. Keep app-specific node mapping out of the way — if a surface really needs different output (inline mention tokens, a clamped preview), it belongs in the library, not in a local fork of the plugin chain.
+4. Keep the KaTeX stylesheet import out of the app: the component owns it.
+
 ## Styling
 
-Import `@zccz14/ux/styles.css` once. It consumes the app's shadcn theme tokens and falls back to its own values, so the shell stays readable even when a token is missing: `--background`, `--foreground`, `--border`, `--accent`, `--muted`, `--ring`, `--sidebar`, `--sidebar-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`.
+Import `@zccz14/ux/styles.css` once. It consumes the app's shadcn theme tokens and falls back to its own values, so the shell stays readable even when a token is missing: `--background`, `--foreground`, `--border`, `--accent`, `--muted`, `--ring`, `--sidebar`, `--sidebar-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. The Markdown layer reads `--muted`, `--muted-foreground`, `--primary` and `--destructive` through the same `--ux-*` layer (`--ux-muted`, `--ux-muted-foreground`, `--ux-primary`, `--ux-destructive`).
 
 Those tokens are read through a `--ux-*` layer declared twice — a light set on `:root` and a dark set on `.dark` — so every fallback has a dark counterpart. A missing `--sidebar` therefore renders dark in dark mode instead of a light sidebar. The shell also sets `color-scheme` per mode, so native scrollbars and controls follow the theme without help from a theme provider.
 

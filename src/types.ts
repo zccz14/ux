@@ -20,3 +20,7 @@ export type AppLayoutProps = {
   pageTitle?: ReactNode;
   children: ReactNode;
 };
+
+export type MarkdownProps = {
+  content: string;
+};

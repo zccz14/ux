@@ -19,7 +19,21 @@ const rawAppTokenReferences = [...body.matchAll(/var\((--[a-z-]+)/g)]
   .map((match) => match[1])
   .filter((name) => !name.startsWith("--ux-"));
 
-const contracts = [
+// The Markdown layer is checked as its own section: it is the single typographic contract every
+// surface in the app family shares, so its properties are contracts rather than preferences.
+const markdownSection = stylesheet.slice(stylesheet.indexOf("/* --- Markdown --- */"));
+const markdownRule = (selector) =>
+  markdownSection.match(new RegExp(`\\${selector} \\{\\n([\\s\\S]*?)^\\}`, "m"))?.[1] ?? "";
+const markdownRules = [...markdownSection.matchAll(/^\.[^{]+\{\n([\s\S]*?)^\}/gm)];
+const markdownScrollers = [...markdownSection.matchAll(/overflow-x: auto/g)].length;
+const markdownAbsoluteSizes = [...markdownSection.matchAll(/font-size:\s*[0-9.]+(?:px|rem|pt)/g)];
+const markdownMeasures = [...markdownSection.matchAll(/max-width:\s*[0-9.]+(?:ch|px|rem)/g)];
+const markdownRawColours = [...markdownSection.matchAll(/var\((--[a-z-]+)/g)].filter(
+  (match) => !match[1].startsWith("--ux-"),
+);
+const externalMarker = markdownRule(".ux-markdown .ux-markdown__external-link");
+
+const shellContracts = [
   [
     "the sidebar animates between 16rem and 3rem",
     stylesheet.includes("transition: width 200ms linear") &&
@@ -70,6 +84,55 @@ const contracts = [
   ],
 ];
 
+const markdownContracts = [
+  ["markdown owns one typographic block", markdownRules.length >= 20],
+  ["markdown sizes stay relative to the host font", markdownAbsoluteSizes.length === 0],
+  ["markdown imposes no measure on its content", markdownMeasures.length === 0],
+  [
+    "headings are relative steps, not fixed sizes",
+    markdownSection.includes("font-size: 1.5em;") &&
+      markdownSection.includes("font-size: 1.25em;") &&
+      markdownSection.includes("font-size: 1.125em;"),
+  ],
+  [
+    "code blocks, tables, display math and diagrams scroll instead of widening the surface",
+    markdownScrollers >= 4,
+  ],
+  [
+    "code blocks and inline code share the muted token",
+    markdownRule(".ux-markdown pre").includes("var(--ux-muted)") &&
+      markdownRule(".ux-markdown code").includes("var(--ux-muted)"),
+  ],
+  [
+    "tables scroll in their own wrapper and drop the outer cell border",
+    markdownRule(".ux-markdown .ux-markdown__table").includes("overflow-x: auto") &&
+      markdownSection.includes("tr:last-child td {\n  border-bottom: 0;\n}"),
+  ],
+  [
+    "task lists replace the marker with the checkbox",
+    markdownSection.includes(".ux-markdown ul.contains-task-list") &&
+      markdownSection.includes(".ux-markdown li.task-list-item"),
+  ],
+  [
+    "the external-link marker scales with the text it follows",
+    externalMarker.includes("width: 0.75em") && externalMarker.includes("height: 0.75em"),
+  ],
+  [
+    "display math scrolls on its own line",
+    markdownRule(".ux-markdown .katex-display").includes("overflow-x: auto"),
+  ],
+  [
+    "broken math degrades to the destructive token",
+    markdownRule(".ux-markdown .katex-error").includes("var(--ux-destructive)"),
+  ],
+  [
+    "the markdown layer adds no colour outside the --ux-* token set",
+    markdownRawColours.length === 0,
+  ],
+];
+
+const contracts = [...shellContracts, ...markdownContracts];
+
 const failures = contracts.filter(([, holds]) => !holds).map(([reason]) => reason);
 for (const reason of failures) {
   console.error(`check-styles: failed — ${reason}`);
@@ -79,6 +142,11 @@ if (failures.length > 0) {
   console.error(`check-styles: light tokens — ${lightTokens.join(", ")}`);
   console.error(`check-styles: dark tokens — ${darkTokens.join(", ")}`);
   console.error(`check-styles: referenced tokens — ${bodyReferences.join(", ")}`);
+  console.error(`check-styles: markdown fixes sizes — ${markdownAbsoluteSizes.map((match) => match[0]).join(", ") || "none"}`);
+  console.error(`check-styles: markdown imposes measures — ${markdownMeasures.map((match) => match[0]).join(", ") || "none"}`);
+  console.error(`check-styles: markdown scrollers — ${markdownScrollers}`);
+  console.error(`check-styles: markdown raw colours — ${markdownRawColours.map((match) => match[1]).join(", ") || "none"}`);
+  console.error(`check-styles: markdown rules — ${markdownRules.length}`);
   process.exit(1);
 }
 console.log(`check-styles: ${contracts.length} contracts hold`);
