@@ -1,20 +1,81 @@
 import type { Element } from "hast";
+import { useEffect, useSyncExternalStore } from "react";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
-import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math-extended";
 
 import { ExternalLinkIcon } from "./icons.js";
 import { Mermaid } from "./mermaid.js";
 import type { MarkdownProps } from "./types.js";
 
 /*
- * KaTeX carries its own typography and fonts. Importing them here — rather than asking every host
- * app to remember a stylesheet — is what makes a formula render identically, and never unstyled,
- * on every surface that shows Markdown. The import is a module-level side effect on purpose: see
- * scripts/check-package.mjs, which exists so nobody tree-shakes it away.
+ * KaTeX carries its own typography and fonts. Importing the stylesheet here — rather than asking
+ * every host app to remember it — is what makes a formula render identically, and never unstyled,
+ * on every surface. The import is a module-level side effect on purpose: see
+ * scripts/check-package.mjs, which exists so nobody tree-shakes it away. Only the stylesheet is
+ * static; the runtime below it is loaded on demand.
  */
 import "katex/dist/katex.min.css";
+
+type RehypePlugins = NonNullable<Options["rehypePlugins"]>;
+type RemarkPlugins = NonNullable<Options["remarkPlugins"]>;
+
+/*
+ * Math is the only part of the pipeline with real weight — KaTeX's runtime is ~76 KB gzipped, more
+ * than the rest of the chain together — and most surfaces in the family never show a formula. So
+ * the tokenizer and the renderer arrive together, on demand, instead of shipping to every app. What
+ * the component can render never varies; only when the code arrives does.
+ */
+let mathPipeline: { rehypePlugins: RehypePlugins; remarkPlugins: RemarkPlugins } | null = null;
+let mathLoad: Promise<void> | null = null;
+const mathListeners = new Set<() => void>();
+
+function subscribeToMath(listener: () => void): () => void {
+  mathListeners.add(listener);
+  return () => {
+    mathListeners.delete(listener);
+  };
+}
+
+function isMathReady(): boolean {
+  return mathPipeline !== null;
+}
+
+/*
+ * Every delimiter this component accepts starts with one of these tokens, so the test is exact: a
+ * formula cannot slip past it. A false positive — a `$5` price, a code block with a backslash —
+ * only costs one shared fetch per session, and the fetched chunk is cached for good.
+ */
+const mathFence = /^ {0,3}(?:```|~~~)\s*math\b/m;
+
+function mayContainMath(content: string): boolean {
+  return (
+    content.includes("$") ||
+    content.includes("\\(") ||
+    content.includes("\\[") ||
+    mathFence.test(content)
+  );
+}
+
+function loadMath(): Promise<void> {
+  mathLoad ??= Promise.all([import("remark-math-extended"), import("rehype-katex")])
+    .then(([remarkMath, rehypeKatex]) => {
+      mathPipeline = {
+        remarkPlugins: [remarkMath.default],
+        rehypePlugins: [
+          [rehypeKatex.default, { strict: "ignore", errorColor: "var(--ux-destructive)" }],
+        ],
+      };
+      for (const listener of mathListeners) {
+        listener();
+      }
+    })
+    .catch(() => {
+      // RECOVERY: a chunk that fails to fetch must never take the surface down with it. Math keeps
+      // rendering as the text it was written as, and the next surface retries the load.
+      mathLoad = null;
+    });
+  return mathLoad;
+}
 
 function mermaidSource(node: Element | undefined): string | null {
   const code = node?.children[0];
@@ -89,25 +150,30 @@ function safeUrl(url: string): string {
   return safeProtocols.has(scheme) ? trimmed : "";
 }
 
-// Two delimiter families, because models pick either one: remark-math-extended adds `\(...\)` and
-// `\[...\]` on top of the usual `$` / `$$`, and a `\\[2pt]` line break inside a formula stays
-// formula content instead of opening a second display block.
-const remarkPlugins: Options["remarkPlugins"] = [remarkGfm, remarkMath];
-
-/*
- * Model-written formulas are loose by nature — Unicode symbols, full-width characters, CJK inside
- * `\text` — and strict mode only reports those as warnings, so the transcript stays clean. Real
- * syntax errors are still KaTeX's job: they degrade to a `.katex-error` span, never a throw.
- */
-const rehypePlugins: Options["rehypePlugins"] = [[rehypeKatex, { strict: "ignore", errorColor: "var(--ux-destructive)" }]];
+const baseRemarkPlugins: RemarkPlugins = [remarkGfm];
+const noRehypePlugins: RehypePlugins = [];
 
 export function Markdown({ content }: MarkdownProps) {
+  // Server rendering and the first client paint both report "not loaded", so they agree and math
+  // starts as the source it was written as; the swap happens once, off the render path.
+  const ready = useSyncExternalStore(subscribeToMath, isMathReady, () => false);
+
+  useEffect(() => {
+    if (!ready && mayContainMath(content)) {
+      void loadMath();
+    }
+  }, [content, ready]);
+
   return (
     <div className="ux-markdown">
       <ReactMarkdown
         components={components}
-        rehypePlugins={rehypePlugins}
-        remarkPlugins={remarkPlugins}
+        rehypePlugins={ready && mathPipeline ? mathPipeline.rehypePlugins : noRehypePlugins}
+        remarkPlugins={
+          ready && mathPipeline
+            ? [...baseRemarkPlugins, ...mathPipeline.remarkPlugins]
+            : baseRemarkPlugins
+        }
         urlTransform={safeUrl}
       >
         {content}

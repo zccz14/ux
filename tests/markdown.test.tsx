@@ -10,9 +10,16 @@ const mermaidModule = vi.hoisted(() => ({
   render: vi.fn(async (id: string) => ({ svg: `<svg data-diagram="${id}"></svg>` })),
 }));
 
+const katexModule = vi.hoisted(() => ({ loads: 0 }));
+
 vi.mock("mermaid", () => {
   mermaidModule.loads += 1;
   return { default: { initialize: mermaidModule.initialize, render: mermaidModule.render } };
+});
+
+vi.mock("rehype-katex", async (importOriginal) => {
+  katexModule.loads += 1;
+  return importOriginal();
 });
 
 function staticHtml(content: string): string {
@@ -67,44 +74,76 @@ describe("tables and task lists", () => {
 });
 
 describe("math", () => {
-  it("renders inline, display, LaTeX-delimited and fenced math through KaTeX", () => {
-    const inline = staticHtml("质能方程 $E=mc^2$ 把质量与能量联系起来。");
-    expect(inline).toContain('<span class="katex">');
-    expect(inline).toContain("质能方程");
+  it("does not load the math pipeline for content without a formula", () => {
+    expect(katexModule.loads).toBe(0);
+    const { container } = render(<Markdown content={"# 标题\n\n普通段落、`code` 与 **粗体**。"} />);
+    expect(container.querySelector(".katex")).not.toBeInTheDocument();
+    expect(katexModule.loads).toBe(0);
+  });
 
-    const display = staticHtml("求和公式：\n\n$$\n\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\n$$");
-    expect(display).toContain("katex-display");
+  it("loads the pipeline once and renders inline math", async () => {
+    const { container } = render(<Markdown content={"质能方程 $E=mc^2$ 把质量与能量联系起来。"} />);
+    await waitFor(() => {
+      expect(container.querySelector(".katex")).toBeInTheDocument();
+    });
+    expect(container.textContent).toContain("质能方程");
+    expect(katexModule.loads).toBe(1);
+  });
 
-    const latex = staticHtml("其中 \\(\\alpha+\\beta\\) 是两个系数。\n\n\\[ p=\\sigma\\left(\\frac{\\mu}{T}\\right) \\]");
-    expect(latex).toContain('<span class="katex">');
-    expect(latex).toContain("katex-display");
-    expect(latex).toContain("是两个系数");
+  it("keeps the formula as source when rendered without a browser", () => {
+    const html = staticHtml("求和：\n\n$$\n\\sum_{i=1}^{n} i\n$$");
+    expect(html).not.toContain("katex");
+    expect(html).toContain("sum_");
+  });
 
-    const fenced = staticHtml("```math\na^2 + b^2 = c^2\n```\n\n```ts\nconst answer = 42\n```");
-    expect(fenced).toContain("katex-display");
-    expect(fenced).toContain('<code class="language-ts">const answer = 42');
+  it("settles every delimiter family, in the first frame once the pipeline is cached", () => {
+    const display = render(
+      <Markdown content={"求和：\n\n$$\n\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\n$$"} />,
+    );
+    expect(display.container.querySelector(".katex-display")).toBeInTheDocument();
+
+    const latex = render(
+      <Markdown
+        content={"其中 \\(\\alpha+\\beta\\) 是两个系数。\n\n\\[ p=\\sigma\\left(\\frac{\\mu}{T}\\right) \\]"}
+      />,
+    );
+    expect(latex.container.querySelector(".katex")).toBeInTheDocument();
+    expect(latex.container.querySelector(".katex-display")).toBeInTheDocument();
+    expect(latex.container.textContent).toContain("是两个系数");
+
+    const fenced = render(
+      <Markdown content={"```math\na^2 + b^2 = c^2\n```\n\n```ts\nconst answer = 42\n```"} />,
+    );
+    expect(fenced.container.querySelector(".katex-display")).toBeInTheDocument();
+    expect(fenced.container.innerHTML).toContain('<code class="language-ts">const answer = 42');
   });
 
   it("keeps code literal and a TeX line break inside one formula", () => {
-    const fences = staticHtml("```ts\nconst x = \\[ a \\]\n```\n\n行内 \\(y\\) 写成 `\\[ z \\]`。");
-    expect(fences).toContain("const x = \\[ a \\]");
-    expect(fences).toContain("<code>\\[ z \\]</code>");
-    expect(fences).toContain('<span class="katex">');
+    const fences = render(
+      <Markdown content={"```ts\nconst x = \\[ a \\]\n```\n\n行内 \\(y\\) 写成 `\\[ z \\]`。"} />,
+    );
+    expect(fences.container.innerHTML).toContain("const x = \\[ a \\]");
+    expect(fences.container.innerHTML).toContain("<code>\\[ z \\]</code>");
+    expect(fences.container.querySelector(".katex")).toBeInTheDocument();
 
-    const aligned = staticHtml("$$\n\\begin{aligned}\na &= b \\\\[2pt]\nc &= d\n\\end{aligned}\n$$");
-    expect((aligned.match(/class="katex-display"/g) ?? []).length).toBe(1);
-    expect(aligned).not.toContain("katex-error");
+    const aligned = render(
+      <Markdown content={"$$\n\\begin{aligned}\na &= b \\\\[2pt]\nc &= d\n\\end{aligned}\n$$"} />,
+    );
+    expect(aligned.container.querySelectorAll(".katex-display").length).toBe(1);
+    expect(aligned.container.querySelector(".katex-error")).not.toBeInTheDocument();
   });
 
   it("degrades broken math and leaves streaming math as source", () => {
-    const broken = staticHtml("坏掉的公式 $\\frac{$ 不应打断渲染");
-    expect(broken).toMatch(/<span class="katex-error" title="/);
-    expect(broken).toContain("color:var(--ux-destructive)");
-    expect(broken).toContain("不应打断渲染");
+    const broken = render(<Markdown content={"坏掉的公式 $\\frac{$ 不应打断渲染"} />);
+    const error = broken.container.querySelector(".katex-error");
+    expect(error).toBeInTheDocument();
+    expect(error?.getAttribute("title")).toBeTruthy();
+    expect(broken.container.innerHTML).toContain("var(--ux-destructive)");
+    expect(broken.container.textContent).toContain("不应打断渲染");
 
-    const partial = staticHtml("还在输出：\\[ p=\\sigma");
-    expect(partial).not.toContain("katex");
-    expect(partial).toContain("p=");
+    const partial = render(<Markdown content={"还在输出：\\[ p=\\sigma"} />);
+    expect(partial.container.querySelector(".katex")).not.toBeInTheDocument();
+    expect(partial.container.textContent).toContain("p=");
   });
 });
 
