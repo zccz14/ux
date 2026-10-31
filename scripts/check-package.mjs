@@ -3,12 +3,17 @@ import { readFileSync } from "node:fs";
 const manifest = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );
+const markdownSource = readFileSync(new URL("../src/markdown.tsx", import.meta.url), "utf8");
+const mermaidSource = readFileSync(new URL("../src/mermaid.tsx", import.meta.url), "utf8");
+
+const staticImports = (source, name) =>
+  new RegExp(`(?:from|import)\\s+"${name.replace("/", "\\/")}"`).test(source);
 
 /*
- * The renderer imports `katex/dist/katex.min.css` for its side effect. Declaring the package as
- * side-effect free would let a consumer's bundler drop that import, and every formula in the family
- * would quietly render as bare LaTeX with no error to notice. The stylesheet deliberately depends
- * on that import surviving, so the manifest may never claim otherwise.
+ * The two heavy halves of the pipeline are loaded on demand: KaTeX's runtime (~76 KB gzip) by the
+ * first surface whose content may contain a formula, and Mermaid by the first diagram. A static
+ * import of either would quietly push that weight into the main bundle of every app in the family,
+ * where only a few of them ever need it — so the shape is checked, not just the API.
  */
 const contracts = [
   ["the package never claims to be side-effect free", manifest.sideEffects !== false],
@@ -30,6 +35,18 @@ const contracts = [
     "react stays a peer dependency and never becomes a second copy",
     Boolean(manifest.peerDependencies?.react) && !manifest.dependencies?.react,
   ],
+  [
+    "the KaTeX stylesheet is imported for its side effect",
+    markdownSource.includes('import "katex/dist/katex.min.css"'),
+  ],
+  [
+    "the math runtime is never imported statically",
+    !staticImports(markdownSource, "rehype-katex") &&
+      !staticImports(markdownSource, "remark-math-extended") &&
+      !staticImports(markdownSource, "katex/dist/katex.mjs") &&
+      !staticImports(markdownSource, "katex"),
+  ],
+  ["mermaid is never imported statically", !staticImports(mermaidSource, "mermaid")],
 ];
 
 const failures = contracts.filter(([, holds]) => !holds).map(([reason]) => reason);
