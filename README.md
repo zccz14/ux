@@ -238,7 +238,7 @@ One prop, on purpose. There is no `math`, `mermaid`, `components`, `remarkPlugin
 - **GitHub Flavored Markdown** — tables, task lists, strikethrough, autolinks.
 , `$…$`, `\(…\)`, `\[…\]` and `math`-tagged code fences, because models emit all of them. The stylesheet and fonts are imported by the component itself, so a formula is never unstyled; the runtime (~76 KB gzipped) is fetched only by a surface whose content can actually contain a formula, and stays cached for the rest of the session. Until that chunk arrives — and always when rendering on a server — a formula shows as the source it was written as, the same state a still-streaming formula is in. Broken math degrades to one `.katex-error` span carrying the parser message.
 - **Mermaid diagrams** — a `mermaid`-tagged fence becomes an SVG, loaded on demand: a surface without a diagram never downloads mermaid. The chart follows the current theme and the surrounding text size, and re-renders when `.dark` flips. An unparseable diagram falls back to its own source block.
-- **Links** — absolute URLs open in a new tab with `rel="noopener noreferrer"` and an external marker; in-page anchors and relative paths stay in the app. Only `http(s)` and `mailto` survive: `javascript:`, `data:` and friends degrade to plain text.
+- **Links** — absolute URLs open in a new tab with `rel="noopener noreferrer"` and an external marker; in-page anchors and relative paths stay in the app. Only `http(s)` and `mailto` survive: `javascript:`, `data:` and friends degrade to plain text. A link keeps the text colour and carries its weight in the underline: Markdown is quoted content, so it never introduces an accent of its own.
 - **Tables and code** — a wide table or a long code block scrolls inside its own box, so the transcript or article around it never grows a horizontal scrollbar.
 - **Raw HTML** — never rendered. The pipeline has no `rehype-raw`, so HTML in the source is shown as text.
 
@@ -259,7 +259,7 @@ The component wraps its content in `.ux-markdown`, and that block is the family'
 
 ## Styling
 
-Import `@zccz14/ux/styles.css` once. It consumes the app's shadcn theme tokens and falls back to its own values, so the shell stays readable even when a token is missing: `--background`, `--foreground`, `--border`, `--accent`, `--muted`, `--ring`, `--sidebar`, `--sidebar-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. The Markdown layer reads `--muted`, `--muted-foreground`, `--primary` and `--destructive` through the same `--ux-*` layer (`--ux-muted`, `--ux-muted-foreground`, `--ux-primary`, `--ux-destructive`).
+Import `@zccz14/ux/styles.css` once. It consumes the app's shadcn theme tokens and falls back to its own values, so the shell stays readable even when a token is missing: `--background`, `--foreground`, `--border`, `--accent`, `--muted`, `--ring`, `--sidebar`, `--sidebar-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. The Markdown layer reads `--muted`, `--muted-foreground` and `--destructive` through the same `--ux-*` layer (`--ux-muted`, `--ux-muted-foreground`, `--ux-destructive`).
 
 Those tokens are read through a `--ux-*` layer declared twice — a light set on `:root` and a dark set on `.dark` — so every fallback has a dark counterpart. A missing `--sidebar` therefore renders dark in dark mode instead of a light sidebar. The shell also sets `color-scheme` per mode, so native scrollbars and controls follow the theme without help from a theme provider.
 

@@ -1,6 +1,6 @@
 {
   "name": "@zccz14/ux",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Unified app shell and Markdown renderer for the NTNL app family: one animated icon sidebar, a fixed-size logo that doubles as the page favicon, the Linkit-integrated AppHeader, and the single Markdown surface every app renders through.",
   "license": "MIT",
   "repository": {

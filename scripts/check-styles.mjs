@@ -129,6 +129,10 @@ const markdownContracts = [
     "the markdown layer adds no colour outside the --ux-* token set",
     markdownRawColours.length === 0,
   ],
+  [
+    "markdown links carry no accent colour of their own",
+    markdownRule(".ux-markdown a").includes("color: inherit"),
+  ],
 ];
 
 const contracts = [...shellContracts, ...markdownContracts];
