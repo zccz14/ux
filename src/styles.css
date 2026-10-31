@@ -15,7 +15,6 @@
   --ux-accent: var(--accent, var(--muted, #f1f5f9));
   --ux-muted: var(--muted, #f1f5f9);
   --ux-muted-foreground: var(--muted-foreground, #64748b);
-  --ux-primary: var(--primary, #2563eb);
   --ux-destructive: var(--destructive, #dc2626);
   --ux-ring: var(--ring, #2563eb);
   --ux-sidebar: var(--sidebar, #fafafa);
@@ -33,7 +32,6 @@
   --ux-accent: var(--accent, var(--muted, #303030));
   --ux-muted: var(--muted, #262626);
   --ux-muted-foreground: var(--muted-foreground, #a3a3a3);
-  --ux-primary: var(--primary, #60a5fa);
   --ux-destructive: var(--destructive, #f87171);
   --ux-ring: var(--ring, #d4d4d4);
   --ux-sidebar: var(--sidebar, #161616);
@@ -593,8 +591,13 @@
   border-top: 1px solid var(--ux-border);
 }
 
+/*
+ * A link keeps the text colour and carries its weight in the underline. Markdown is quoted
+ * content — model output, a manual, an article — so it never introduces an accent colour of its
+ * own; the family's coloured elements are actions, not text.
+ */
 .ux-markdown a {
-  color: var(--ux-primary);
+  color: inherit;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
