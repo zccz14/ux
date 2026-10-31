@@ -246,6 +246,20 @@ One prop, on purpose. There is no `math`, `mermaid`, `components`, `remarkPlugin
 
 The component wraps its content in `.ux-markdown`, and that block is the family's typographic contract: every size is expressed in `em` off the inherited font size, and no measure is imposed. The same content therefore keeps identical proportions in a 14px chat bubble and a 16px article page. The host decides two things and only two — the font size of the container the content is dropped into, and the width of that container. Do not wrap the component in `prose` classes: the stylesheet is the single source of the look, and `scripts/check-styles.mjs` enforces it.
 
+### Server rendering
+
+The component renders on a server without waiting for anything: math shows as the source it was
+written as, and diagrams as their fenced block. The client swaps them in once the on-demand chunks
+arrive, and the server snapshot and the first client render agree, so hydration stays silent.
+
+If the server render goes through Vite's SSR (`ssrLoadModule`, or a framework built on it), inline
+the package — otherwise Vite externalises it and hands the KaTeX stylesheet import to Node, which
+cannot load `.css`:
+
+```ts
+export default defineConfig({ ssr: { noExternal: ["@zccz14/ux"] } });
+```
+
 ### Why the pipeline is a runtime dependency
 
 `react-markdown`, `remark-gfm`, `remark-math-extended`, `rehype-katex`, `katex` and `mermaid` are `dependencies`, not peers, so an app wires nothing. An app that never renders Markdown tree-shakes the whole chain away, and two pieces are deliberately kept out of the main bundle even for apps that do: Mermaid (loaded by the first diagram, so a surface without one never downloads it) and the math runtime (KaTeX's ~76 KB gzipped JavaScript, loaded by the first surface whose content may contain a formula). What stays static is KaTeX's stylesheet — about 3.6 KB gzipped, with fonts the browser only fetches once a formula is on screen — because a formula must never render unstyled. `scripts/check-package.mjs` fails the build if the manifest ever claims `sideEffects: false`, which would let a bundler drop that stylesheet and render every formula as bare LaTeX with no error to notice.
