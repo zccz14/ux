@@ -712,7 +712,13 @@
  * "more text is coming" without the reader having to watch the paragraph grow. It hangs off the
  * last block as decoration, so it never enters the text the host copies or the parser reads.
  */
-.ux-markdown[data-revealing] > :last-child::after {
+/*
+ * The caret belongs where the text stopped, not after the block that contains it: a list or a quote
+ * would otherwise leave it floating on a line of its own, one row below the last character.
+ */
+.ux-markdown[data-revealing] > :last-child:not(:has(> p, > li))::after,
+.ux-markdown[data-revealing] > :last-child:has(> p:last-child) > p:last-child::after,
+.ux-markdown[data-revealing] > :last-child:has(> li:last-child) > li:last-child::after {
   content: "";
   display: inline-block;
   inline-size: 0.45em;
