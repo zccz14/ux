@@ -182,6 +182,19 @@ describe("mermaid", () => {
     });
   });
 
+  it("paints a diagram again without flashing its source when the same fence remounts", async () => {
+    const content = "```mermaid\ngraph TD\n  X --> Y\n```";
+    const first = render(<Markdown content={content} />);
+    await waitFor(() => {
+      expect(first.container.querySelector('[data-mermaid="diagram"]')).toBeInTheDocument();
+    });
+    first.unmount();
+
+    const second = render(<Markdown content={content} />);
+    expect(second.container.querySelector('[data-mermaid="diagram"]')).toBeInTheDocument();
+    expect(second.container.querySelector('[data-mermaid="source"]')).not.toBeInTheDocument();
+  });
+
   it("falls back to the source block when a diagram cannot be parsed", async () => {
     mermaidModule.render.mockRejectedValueOnce(new Error("parse error"));
     const { container } = render(<Markdown content={"```mermaid\ngraph TD\n  A ---\n```"} />);
