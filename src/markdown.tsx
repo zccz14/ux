@@ -1,10 +1,12 @@
 import type { Element } from "hast";
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ExternalLinkIcon } from "./icons.js";
+import { hasOpenFence, revealTailOffset, truncateTo } from "./markdown-reveal.js";
 import { Mermaid } from "./mermaid.js";
+import { advanceReveal, isRevealing, observeReveal, settledPace, settleReveal, type RevealPace } from "./reveal.js";
 import type { MarkdownProps } from "./types.js";
 
 /*
@@ -151,9 +153,119 @@ function safeUrl(url: string): string {
 }
 
 const baseRemarkPlugins: RemarkPlugins = [remarkGfm];
+const noRemarkPlugins: RemarkPlugins = [];
 const noRehypePlugins: RehypePlugins = [];
 
-export function Markdown({ content }: MarkdownProps) {
+/* A frame is drawn far more often than a character is read; text at 60 Hz only costs layout. */
+const commitInterval = 33;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
+/*
+ * How much of `content` the surface paints right now. Everything below stays a pure function of
+ * that number, so the animation can never show something the caller did not send: the pace starts
+ * settled (a mount shows everything), only an append animates, and anything else snaps.
+ */
+function useRevealedLength(content: string, reveal: boolean): number {
+  const [shown, setShown] = useState(content.length);
+  // Null until the first effect: a ref initialised during render would date the mount from a
+  // moment no clock measured, and the first append would then read as a very long gap.
+  const pace = useRef<RevealPace | null>(null);
+  const frame = useRef<number | null>(null);
+  const committedAt = useRef(0);
+
+  const stop = useCallback(() => {
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current);
+      frame.current = null;
+    }
+  }, []);
+
+  const commit = useCallback((value: number, at: number) => {
+    committedAt.current = at;
+    setShown(value);
+  }, []);
+
+  const schedule = useCallback(() => {
+    if (frame.current !== null) {
+      return;
+    }
+    frame.current = requestAnimationFrame(function tick() {
+      frame.current = null;
+      if (pace.current === null) {
+        return;
+      }
+      const at = Date.now();
+      pace.current = advanceReveal(pace.current, at);
+      const revealing = isRevealing(pace.current);
+      if (!revealing || at - committedAt.current >= commitInterval) {
+        commit(pace.current.shown, at);
+      }
+      if (revealing) {
+        frame.current = requestAnimationFrame(tick);
+      }
+    });
+  }, [commit]);
+
+  useEffect(() => {
+    const at = Date.now();
+    if (!reveal || prefersReducedMotion()) {
+      stop();
+      pace.current = settledPace(content, at);
+      commit(content.length, at);
+      return;
+    }
+    pace.current = observeReveal(pace.current ?? settledPace(content, at), content, at);
+    commit(pace.current.shown, at);
+    if (isRevealing(pace.current)) {
+      schedule();
+    } else {
+      stop();
+    }
+  }, [content, reveal, commit, schedule, stop]);
+
+  /*
+   * A tab in the background paints nothing, so its frames pile up into one burst on return. The
+   * reveal gives up instead and shows the whole snapshot: coming back to a finished paragraph is
+   * less strange than watching it type itself out for a reader who already left.
+   */
+  useEffect(() => {
+    if (!reveal) {
+      return;
+    }
+    const settleWhenHidden = () => {
+      if (!document.hidden) {
+        return;
+      }
+      stop();
+      if (pace.current !== null) {
+        pace.current = settleReveal(pace.current);
+        commit(pace.current.shown, Date.now());
+      }
+    };
+    document.addEventListener("visibilitychange", settleWhenHidden);
+    return () => document.removeEventListener("visibilitychange", settleWhenHidden);
+  }, [reveal, commit, stop]);
+
+  useEffect(() => stop, [stop]);
+
+  return shown;
+}
+
+/*
+ * While a fence is still being written its source is what a reader should see — the diagram needs
+ * the closing fence to mean anything, and retrying it on every frame would burn the main thread.
+ */
+const openFencePre: NonNullable<Components["pre"]> = ({ children, node: _node, ...props }) => (
+  <pre {...props}>{children}</pre>
+);
+
+export function Markdown({ content, reveal = false }: MarkdownProps) {
   // Server rendering and the first client paint both report "not loaded", so they agree and math
   // starts as the source it was written as; the swap happens once, off the render path.
   const ready = useSyncExternalStore(subscribeToMath, isMathReady, () => false);
@@ -164,19 +276,54 @@ export function Markdown({ content }: MarkdownProps) {
     }
   }, [content, ready]);
 
+  const shown = useRevealedLength(content, reveal);
+  const revealing = reveal && shown < content.length;
+  /*
+   * The finished blocks and the block still being written are rendered apart: the first ones only
+   * re-render when another block settles, so a diagram or a formula above the tail is built once
+   * instead of on every frame. The offset comes from the parser, never from a second opinion about
+   * where a block ends.
+   */
+  const tailOffset = useMemo(() => (revealing ? revealTailOffset(content) : 0), [content, revealing]);
+  const prefix = revealing ? content.slice(0, tailOffset) : "";
+  const tail = revealing ? content.slice(tailOffset) : content;
+  const budget = Math.min(Math.max(0, shown - tailOffset), tail.length);
+
+  const rehypePlugins = ready && mathPipeline ? mathPipeline.rehypePlugins : noRehypePlugins;
+  const mathRemarkPlugins = ready && mathPipeline ? mathPipeline.remarkPlugins : noRemarkPlugins;
+
+  const settledRemarkPlugins = useMemo(
+    () => [...baseRemarkPlugins, ...mathRemarkPlugins],
+    [mathRemarkPlugins],
+  );
+  const tailRemarkPlugins = useMemo(
+    () => (revealing ? [...settledRemarkPlugins, truncateTo(budget)] : settledRemarkPlugins),
+    [revealing, settledRemarkPlugins, budget],
+  );
+  const tailComponents = useMemo(
+    () => (revealing && hasOpenFence(tail) ? { ...components, pre: openFencePre } : components),
+    [revealing, tail],
+  );
+
   return (
-    <div className="ux-markdown">
+    <div className="ux-markdown" data-revealing={reveal ? "" : undefined}>
+      {prefix === "" ? null : (
+        <ReactMarkdown
+          components={components}
+          rehypePlugins={rehypePlugins}
+          remarkPlugins={settledRemarkPlugins}
+          urlTransform={safeUrl}
+        >
+          {prefix}
+        </ReactMarkdown>
+      )}
       <ReactMarkdown
-        components={components}
-        rehypePlugins={ready && mathPipeline ? mathPipeline.rehypePlugins : noRehypePlugins}
-        remarkPlugins={
-          ready && mathPipeline
-            ? [...baseRemarkPlugins, ...mathPipeline.remarkPlugins]
-            : baseRemarkPlugins
-        }
+        components={tailComponents}
+        rehypePlugins={rehypePlugins}
+        remarkPlugins={tailRemarkPlugins}
         urlTransform={safeUrl}
       >
-        {content}
+        {tail}
       </ReactMarkdown>
     </div>
   );
