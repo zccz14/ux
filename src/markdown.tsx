@@ -156,8 +156,12 @@ const baseRemarkPlugins: RemarkPlugins = [remarkGfm];
 const noRemarkPlugins: RemarkPlugins = [];
 const noRehypePlugins: RehypePlugins = [];
 
-/* A frame is drawn far more often than a character is read; text at 60 Hz only costs layout. */
-const commitInterval = 33;
+/*
+ * The reveal moves every frame: one commit per frame is what makes a staircase read as a line, and
+ * only the block still being written re-renders. The guard is there to keep two rAF callbacks in
+ * the same frame from committing twice, not to slow the text down.
+ */
+const commitInterval = 12;
 
 function prefersReducedMotion(): boolean {
   return (
