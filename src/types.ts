@@ -23,4 +23,11 @@ export type AppLayoutProps = {
 
 export type MarkdownProps = {
   content: string;
+  /*
+   * Reveal the content progressively as it grows, so a snapshot that arrives in whole chunks reads
+   * as a string being typed. Off by default, and a mount never animates: only content that arrives
+   * after the surface is on screen is revealed. The host decides which surfaces are live — this
+   * only decides what a live one looks like.
+   */
+  reveal?: boolean;
 };

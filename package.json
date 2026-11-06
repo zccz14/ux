@@ -1,7 +1,7 @@
 {
   "name": "@zccz14/ux",
-  "version": "0.6.1",
-  "description": "Unified app shell and Markdown renderer for the NTNL app family: one animated icon sidebar, a fixed-size logo that doubles as the page favicon, the Linkit-integrated AppHeader, and the single Markdown surface every app renders through.",
+  "version": "0.7.0",
+  "description": "Unified app shell and Markdown renderer for the NTNL app family: one animated icon sidebar, a fixed-size logo that doubles as the page favicon, the Linkit-integrated AppHeader, and the single Markdown surface every app renders through, streaming reveal included.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -50,13 +50,16 @@
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
-    "remark-math-extended": "^6.1.1"
+    "remark-math-extended": "^6.1.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.0"
   },
   "devDependencies": {
     "@base-ui/react": "^1.6.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/hast": "^3.0.5",
+    "@types/mdast": "^4.0.4",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "auth-mini-react-components": "^0.6.10",

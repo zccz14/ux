@@ -706,3 +706,37 @@
   height: auto;
   margin: 0 auto;
 }
+
+/*
+ * A reply that is still arriving ends in a caret, not a full stop: it is the one mark that says
+ * "more text is coming" without the reader having to watch the paragraph grow. It hangs off the
+ * last block as decoration, so it never enters the text the host copies or the parser reads.
+ */
+.ux-markdown[data-revealing] > :last-child::after {
+  content: "";
+  display: inline-block;
+  inline-size: 0.45em;
+  block-size: 1em;
+  margin-inline-start: 0.12em;
+  vertical-align: -0.15em;
+  background: currentColor;
+  opacity: 0.4;
+  animation: ux-markdown-caret 1.1s steps(1, end) infinite;
+}
+
+@keyframes ux-markdown-caret {
+  0%,
+  55% {
+    opacity: 0.4;
+  }
+  55.01%,
+  100% {
+    opacity: 0.06;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ux-markdown[data-revealing] > :last-child::after {
+    animation: none;
+  }
+}
