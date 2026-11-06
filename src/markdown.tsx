@@ -4,7 +4,7 @@ import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ExternalLinkIcon } from "./icons.js";
-import { hasOpenFence, revealTailOffset, truncateTo } from "./markdown-reveal.js";
+import { hasOpenFence, truncateTo } from "./markdown-reveal.js";
 import { Mermaid } from "./mermaid.js";
 import { advanceReveal, isRevealing, observeReveal, settledPace, settleReveal, type RevealPace } from "./reveal.js";
 import type { MarkdownProps } from "./types.js";
@@ -282,16 +282,7 @@ export function Markdown({ content, reveal = false }: MarkdownProps) {
 
   const shown = useRevealedLength(content, reveal);
   const revealing = reveal && shown < content.length;
-  /*
-   * The finished blocks and the block still being written are rendered apart: the first ones only
-   * re-render when another block settles, so a diagram or a formula above the tail is built once
-   * instead of on every frame. The offset comes from the parser, never from a second opinion about
-   * where a block ends.
-   */
-  const tailOffset = useMemo(() => (revealing ? revealTailOffset(content) : 0), [content, revealing]);
-  const prefix = revealing ? content.slice(0, tailOffset) : "";
-  const tail = revealing ? content.slice(tailOffset) : content;
-  const budget = Math.min(Math.max(0, shown - tailOffset), tail.length);
+  const budget = Math.min(Math.max(0, shown), content.length);
 
   const rehypePlugins = ready && mathPipeline ? mathPipeline.rehypePlugins : noRehypePlugins;
   const mathRemarkPlugins = ready && mathPipeline ? mathPipeline.remarkPlugins : noRemarkPlugins;
@@ -304,30 +295,27 @@ export function Markdown({ content, reveal = false }: MarkdownProps) {
     () => (revealing ? [...settledRemarkPlugins, truncateTo(budget)] : settledRemarkPlugins),
     [revealing, settledRemarkPlugins, budget],
   );
+  /*
+   * One document, always. An earlier version rendered the finished blocks and the block still being
+   * written as two documents; moving a block from one to the other unmounted whatever lived inside
+   * it, and a diagram or an image that remounts paints nothing for a frame — a hundred-pixel hole
+   * for anything laid out below the reply. One tree keeps every node in place, so React only
+   * appends to the tail while the reveal runs.
+   */
   const tailComponents = useMemo(
-    () => (revealing && hasOpenFence(tail) ? { ...components, pre: openFencePre } : components),
-    [revealing, tail],
+    () => (revealing && hasOpenFence(content) ? { ...components, pre: openFencePre } : components),
+    [revealing, content],
   );
 
   return (
     <div className="ux-markdown" data-revealing={reveal ? "" : undefined}>
-      {prefix === "" ? null : (
-        <ReactMarkdown
-          components={components}
-          rehypePlugins={rehypePlugins}
-          remarkPlugins={settledRemarkPlugins}
-          urlTransform={safeUrl}
-        >
-          {prefix}
-        </ReactMarkdown>
-      )}
       <ReactMarkdown
         components={tailComponents}
         rehypePlugins={rehypePlugins}
         remarkPlugins={tailRemarkPlugins}
         urlTransform={safeUrl}
       >
-        {tail}
+        {content}
       </ReactMarkdown>
     </div>
   );

@@ -15,7 +15,6 @@ const externalPackages = [
   "rehype-katex",
   "remark-gfm",
   "remark-math-extended",
-  "remark-parse",
   "unified",
 ];
 

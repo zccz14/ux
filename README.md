@@ -138,8 +138,10 @@ per snapshot — so a staircase of arrivals reads as a steady line.
 - **Only growth animates.** A mount shows everything it was given, and a snapshot that is not a
   pure append — a rewrite, a correction, a shorter one — snaps. Nothing replays, nothing runs
   backwards.
-- **Finished blocks render once.** Only the block still being written re-renders per frame, so a
-  diagram or a formula above it is built once instead of on every frame.
+- **One tree, always.** The reveal is a cut applied to the document the renderer already parsed, not
+  a second document rendered beside it. Nothing is ever moved between trees, so a diagram, an image
+  or anything else with a lifecycle of its own stays mounted while the text grows — a remount would
+  paint a hole for a frame, and everything laid out below the reply would jump by its height.
 - **It gives up gracefully.** `prefers-reduced-motion: reduce`, and a tab put in the background
   mid-reveal, show the snapshot whole.
 - **The caret is decoration.** `.ux-markdown[data-revealing] > :last-child::after` hangs off the

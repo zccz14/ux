@@ -1,7 +1,5 @@
 import type { Root, RootContent } from "mdast";
-import remarkGfm from "remark-gfm";
-import remarkParse from "remark-parse";
-import { unified, type Plugin } from "unified";
+import type { Plugin } from "unified";
 
 /*
  * Two jobs, both of which need the parser rather than a guess at it.
@@ -17,33 +15,6 @@ type Positioned = {
   children?: Positioned[];
   value?: string;
 };
-
-/*
- * Which characters belong to the last top-level block. Everything before it is finished and can be
- * rendered once; only the block still being written is worth re-rendering per frame.
- */
-export function revealTailOffset(content: string): number {
-  if (hasDocumentWideNames(content)) {
-    return 0;
-  }
-  try {
-    const tree = parser.parse(content) as Root;
-    const last = tree.children[tree.children.length - 1] as Positioned | undefined;
-    const start = last?.position?.start.offset;
-    return typeof start === "number" ? start : 0;
-  } catch {
-    return 0;
-  }
-}
-
-/*
- * A link reference definition or a footnote is named in one place and used in another, so the
- * document is a single scope for them; splitting it at a block boundary would leave the tail
- * pointing at a definition it can no longer see. Those documents reveal as one piece instead.
- */
-function hasDocumentWideNames(content: string): boolean {
-  return /^ {0,3}\[[^\]\n]+\]:/m.test(content) || /\[\^[^\]\n]+\]/.test(content);
-}
 
 /** Source characters a node covers, falling back to its own text when the parser gives no range. */
 function sourceLength(node: Positioned): number {
@@ -122,5 +93,3 @@ export function hasOpenFence(source: string): boolean {
   }
   return open;
 }
-
-const parser = unified().use(remarkParse).use(remarkGfm);
