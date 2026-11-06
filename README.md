@@ -128,8 +128,9 @@ One prop, on purpose. There is no `math`, `mermaid`, `components`, `remarkPlugin
 `<Markdown content={...} reveal />` is the same renderer, told that the string is still being
 written. A polling host hands the component the whole field again every so often; without `reveal`
 each snapshot lands in one jump. With it the component remembers what it last showed, and when the
-new snapshot only extends the old one it reveals the difference at the cadence the snapshots have
-been arriving at, so the text reads as if it were being typed.
+new snapshot only extends the old one it types the difference out at the rate the characters have
+actually been arriving — a continuous velocity learned from the last few snapshots, not a schedule
+per snapshot — so a staircase of arrivals reads as a steady line.
 
 - **Nothing is invented.** What is on screen is always a prefix of `content`: the cut is applied to
   the parsed tree, so a half-typed `**bold` never flashes as asterisks and an unfinished fence stays
