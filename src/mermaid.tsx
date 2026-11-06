@@ -43,16 +43,55 @@ async function renderDiagram(source: string, element: HTMLElement | null): Promi
   }
 }
 
+/*
+ * A diagram is a function of its source, the palette and the host font size, so it is cached under
+ * all three. The cache exists because a remount must not be visible: a streaming reply re-renders
+ * the block being written on every frame and moves each finished block into the settled part above
+ * it, which unmounts and remounts this component. Without a cache every one of those remounts
+ * painted the fence source first and the SVG a frame later — a jump of about a hundred pixels for
+ * anything laid out below the reply.
+ */
+const diagramCache = new Map<string, string>();
+/* The last picture of a source, regardless of palette or size: the first frame of a remount has no
+ * element to measure yet, and a picture at the previous size beats a code block at any size. */
+const latestDiagram = new Map<string, string>();
+const cacheLimit = 64;
+
+function remember(key: string, source: string, svg: string) {
+  diagramCache.set(key, svg);
+  latestDiagram.set(source, svg);
+  while (diagramCache.size > cacheLimit) {
+    const oldest = diagramCache.keys().next();
+    if (oldest.done) break;
+    diagramCache.delete(oldest.value);
+  }
+  while (latestDiagram.size > cacheLimit) {
+    const oldest = latestDiagram.keys().next();
+    if (oldest.done) break;
+    latestDiagram.delete(oldest.value);
+  }
+}
+
 export function Mermaid({ source }: { source: string }) {
-  const [svg, setSvg] = useState<string | null>(null);
+  // The first paint of a remount is the picture we already have, not the fence it replaced.
+  const [svg, setSvg] = useState<string | null>(() => latestDiagram.get(source) ?? null);
   const element = useRef<HTMLElement | null>(null);
   const renderToken = useRef(0);
 
   useEffect(() => {
     const render = async () => {
       const token = ++renderToken.current;
+      const key = `${currentTheme()}|${fontSizeOf(element.current)}|${source}`;
+      const cached = diagramCache.get(key);
+      if (cached !== undefined) {
+        setSvg(cached);
+        return;
+      }
       const next = await renderDiagram(source, element.current);
       if (renderToken.current === token) {
+        if (next !== null) {
+          remember(key, source, next);
+        }
         setSvg(next);
       }
     };
