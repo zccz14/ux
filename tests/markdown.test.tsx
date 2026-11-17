@@ -55,6 +55,60 @@ describe("links", () => {
   it("renders every surface inside the shared typographic wrapper", () => {
     expect(staticHtml("正文")).toContain('class="ux-markdown"');
   });
+
+  /*
+   * 中文句子在 URL 后面不加空格，GFM 的裸链接因此会一路吃到句号，顺便把后面的半句话也吞进去。
+   */
+  it("ends a bare URL at the Chinese punctuation that follows it", () => {
+    const html = staticHtml("v0.6.104 已部署到 https://cybion.ntnl.io。线上 bundle 已更新。");
+    expect(html).toContain('href="https://cybion.ntnl.io"');
+    expect(html).toMatch(/<\/a>。线上 bundle 已更新。/);
+    expect(html).not.toContain("cybion.ntnl.io%E3%80%82");
+  });
+
+  it("ends a bare URL at every mark a sentence can end with", () => {
+    for (const [mark, tail] of [
+      ["，", "然后"],
+      ["、", "以及"],
+      ["！", "真的"],
+      ["？", "谁知道"],
+      ["：", "这是"],
+      ["（", "新）"],
+      ["…", "等等"],
+      ["」", "他说"],
+    ] as const) {
+      const html = staticHtml(`见 https://a.dev/x/y${mark}${tail}`);
+      expect(html, mark).toContain('href="https://a.dev/x/y"');
+      expect(html, mark).toContain(`</a>${mark}${tail}`);
+      expect(html, mark).not.toContain(`${mark}${tail}</a>`);
+    }
+  });
+
+  it("keeps a CJK path inside the URL, because that is a real address", () => {
+    const html = staticHtml("看 https://zh.wikipedia.org/wiki/中文。后面");
+    // href 由渲染管线按 URI 规范转义，可见文字保持原样：链接止于句号，中文路径留在网址里。
+    expect(html).toContain('href="https://zh.wikipedia.org/wiki/%E4%B8%AD%E6%96%87"');
+    expect(html).toMatch(/>https:\/\/zh\.wikipedia\.org\/wiki\/中文<svg/);
+    expect(html).toMatch(/<\/a>。后面/);
+  });
+
+  it("strips the ASCII punctuation the cut exposes, and keeps the rest as text", () => {
+    const html = staticHtml("见 https://a.dev/x.。后面");
+    expect(html).toContain('href="https://a.dev/x"');
+    expect(html).toMatch(/<\/a>\.。后面/);
+  });
+
+  it("leaves the author's own link text and targets exactly as written", () => {
+    const html = staticHtml("[https://cybion.ntnl.io。](https://cybion.ntnl.io)。后面");
+    expect(html).toContain('href="https://cybion.ntnl.io"');
+    expect(html).toContain(">https://cybion.ntnl.io。<");
+  });
+
+  it("ends a www autolink at Chinese punctuation too", () => {
+    const html = staticHtml("访问 www.a.dev。后面");
+    expect(html).toContain('href="http://www.a.dev"');
+    expect(html).toMatch(/<\/a>。后面/);
+  });
 });
 
 describe("tables and task lists", () => {
