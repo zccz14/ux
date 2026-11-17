@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ExternalLinkIcon } from "./icons.js";
+import { autolinkBoundary } from "./markdown-links.js";
 import { hasOpenFence, truncateTo } from "./markdown-reveal.js";
 import { Mermaid } from "./mermaid.js";
 import { advanceReveal, isRevealing, observeReveal, settledPace, settleReveal, type RevealPace } from "./reveal.js";
@@ -152,7 +153,7 @@ function safeUrl(url: string): string {
   return safeProtocols.has(scheme) ? trimmed : "";
 }
 
-const baseRemarkPlugins: RemarkPlugins = [remarkGfm];
+const baseRemarkPlugins: RemarkPlugins = [autolinkBoundary, remarkGfm];
 const noRemarkPlugins: RemarkPlugins = [];
 const noRehypePlugins: RehypePlugins = [];
 
